@@ -1,0 +1,541 @@
+pip install tensorflow-text==2.4.1
+import tensorflow as tf%tensorflow_version 2.x
+import tensorflow as tf
+device_name = tf.test.gpu_device_name()
+if device_name != '/device:GPU:0':
+  raise SystemError('GPU device not found')
+print('Found GPU at: {}'.format(device_name))
+
+print(tf. __version__)
+#print("Num GPUs Available: ", len(tf.config.list_physical_devices('GPU')))
+
+device_name = tf.test.gpu_device_name()
+
+print('Found GPU at: {}'.format(device_name))
+pip install transformers
+import os
+import shutil
+
+import tensorflow as tf
+import tensorflow_hub as hub
+import tensorflow_text as text
+
+import matplotlib.pyplot as plt
+
+tf.get_logger().setLevel('ERROR')
+import pandas as pd
+import numpy as np
+from sklearn.model_selection import GroupKFold
+import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
+
+
+from scipy.stats import spearmanr
+from math import floor, ceil
+
+import numpy as np
+import pandas as pd
+import pickle
+import tensorflow as tf
+from wordcloud import WordCloud, STOPWORDS
+import matplotlib.pyplot as plt
+from tensorflow.keras.preprocessing import text, sequence
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout, Activation
+from tensorflow.keras.layers import Embedding
+from tensorflow.keras.layers import Conv1D, GlobalMaxPooling1D, MaxPooling1D
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+import numpy as np 
+import pandas as pd
+from sklearn.model_selection import train_test_split
+
+np.set_printoptions(suppress=True)
+print(tf.__version__)
+
+import shutil
+#from official.nlp import optimization  # to create AdamW optmizer
+
+tf.get_logger().setLevel('ERROR')
+
+df = pd.read_csv('labeled_data.csv')
+nRowsRead = None # specify 'None' if want to read whole file
+# labeled_data.csv may have more rows in reality, but we are only loading/previewing the first 1000 rows
+df0 = pd.read_csv('labeled_data.csv', delimiter=',', nrows = nRowsRead)
+nRow, nCol = df0.shape
+print('There are {} rows and {} columns'.format(nRow, nCol))
+
+
+#Doing some adjustments
+c=df0['class']
+df0.rename(columns={'tweet' : 'text',
+                   'class' : 'category'}, 
+                    inplace=True)
+a=df0['text']
+b=df0['category'].map({0: 'hate_speech', 1: 'offensive_language',2: 'neither'})
+
+df= pd.concat([a,b,c], axis=1)
+df.rename(columns={'class' : 'label'}, 
+                    inplace=True)
+df
+
+hate, ofensive, neither = np.bincount(df['label'])
+total = hate + ofensive + neither
+print('Examples:\n    Total: {}\n    hate: {} ({:.2f}% of total)\n'.format(
+    total, hate, 100 * hate / total))
+print('Examples:\n    Total: {}\n    Ofensive: {} ({:.2f}% of total)\n'.format(
+    total, ofensive, 100 * ofensive / total))
+print('Examples:\n    Total: {}\n    Neither: {} ({:.2f}% of total)\n'.format(
+    total, neither, 100 * neither / total))
+
+
+X_train_, X_test, y_train_, y_test = train_test_split(
+    df.index.values,
+    df.label.values,
+    test_size=0.10,
+    random_state=42,
+    stratify=df.label.values,    
+)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    df.loc[X_train_].index.values,
+    df.loc[X_train_].label.values,
+    test_size=0.10,
+    random_state=42,
+    stratify=df.loc[X_train_].label.values,  
+)
+
+df['data_type'] = ['not_set']*df.shape[0]
+df.loc[X_train, 'data_type'] = 'train'
+df.loc[X_val, 'data_type'] = 'val'
+df.loc[X_test, 'data_type'] = 'test'
+
+df_train = df.loc[df["data_type"]=="train"]
+df_val = df.loc[df["data_type"]=="val"]
+df_test = df.loc[df["data_type"]=="test"]
+
+train_ds = tf.data.Dataset.from_tensor_slices((df_train.text.values, df_train.label.values))
+val_ds = tf.data.Dataset.from_tensor_slices((df_val.text.values, df_val.label.values))
+test_ds = tf.data.Dataset.from_tensor_slices((df_test.text.values, df_test.label.values))
+
+train_ds = train_ds.shuffle(len(df_train)).batch(32, drop_remainder=False)
+val_ds = val_ds.shuffle(len(df_val)).batch(32, drop_remainder=False)
+test_ds = test_ds.shuffle(len(df_test)).batch(32, drop_remainder=False)
+
+
+#@title Choose a BERT model to fine-tune
+
+bert_model_name = 'small_bert/bert_en_uncased_L-2_H-128_A-2'  #@param ["bert_en_uncased_L-12_H-768_A-12", "bert_en_cased_L-12_H-768_A-12", "bert_multi_cased_L-12_H-768_A-12", "small_bert/bert_en_uncased_L-2_H-128_A-2", "small_bert/bert_en_uncased_L-2_H-256_A-4", "small_bert/bert_en_uncased_L-2_H-512_A-8", "small_bert/bert_en_uncased_L-2_H-768_A-12", "small_bert/bert_en_uncased_L-4_H-128_A-2", "small_bert/bert_en_uncased_L-4_H-256_A-4", "small_bert/bert_en_uncased_L-4_H-512_A-8", "small_bert/bert_en_uncased_L-4_H-768_A-12", "small_bert/bert_en_uncased_L-6_H-128_A-2", "small_bert/bert_en_uncased_L-6_H-256_A-4", "small_bert/bert_en_uncased_L-6_H-512_A-8", "small_bert/bert_en_uncased_L-6_H-768_A-12", "small_bert/bert_en_uncased_L-8_H-128_A-2", "small_bert/bert_en_uncased_L-8_H-256_A-4", "small_bert/bert_en_uncased_L-8_H-512_A-8", "small_bert/bert_en_uncased_L-8_H-768_A-12", "small_bert/bert_en_uncased_L-10_H-128_A-2", "small_bert/bert_en_uncased_L-10_H-256_A-4", "small_bert/bert_en_uncased_L-10_H-512_A-8", "small_bert/bert_en_uncased_L-10_H-768_A-12", "small_bert/bert_en_uncased_L-12_H-128_A-2", "small_bert/bert_en_uncased_L-12_H-256_A-4", "small_bert/bert_en_uncased_L-12_H-512_A-8", "small_bert/bert_en_uncased_L-12_H-768_A-12", "albert_en_base", "electra_small", "electra_base", "experts_pubmed", "experts_wiki_books", "talking-heads_base"]
+
+map_name_to_handle = {
+    'bert_en_uncased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_L-12_H-768_A-12/3',
+    'bert_en_cased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_cased_L-12_H-768_A-12/3',
+    'bert_multi_cased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_multi_cased_L-12_H-768_A-12/3',
+    'small_bert/bert_en_uncased_L-2_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-2_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-2_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-2_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-2_H-768_A-12/1',
+    'small_bert/bert_en_uncased_L-4_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-4_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-4_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-4_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-4_H-768_A-12/1',
+    'small_bert/bert_en_uncased_L-6_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-6_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-6_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-6_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-6_H-768_A-12/1',
+    'small_bert/bert_en_uncased_L-8_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-8_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-8_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-8_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-8_H-768_A-12/1',
+    'small_bert/bert_en_uncased_L-10_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-10_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-10_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-10_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-10_H-768_A-12/1',
+    'small_bert/bert_en_uncased_L-12_H-128_A-2':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-128_A-2/1',
+    'small_bert/bert_en_uncased_L-12_H-256_A-4':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-256_A-4/1',
+    'small_bert/bert_en_uncased_L-12_H-512_A-8':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-512_A-8/1',
+    'small_bert/bert_en_uncased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/small_bert/bert_en_uncased_L-12_H-768_A-12/1',
+    'albert_en_base':
+        'https://tfhub.dev/tensorflow/albert_en_base/2',
+    'electra_small':
+        'https://tfhub.dev/google/electra_small/2',
+    'electra_base':
+        'https://tfhub.dev/google/electra_base/2',
+    'experts_pubmed':
+        'https://tfhub.dev/google/experts/bert/pubmed/2',
+    'experts_wiki_books':
+        'https://tfhub.dev/google/experts/bert/wiki_books/2',
+    'talking-heads_base':
+        'https://tfhub.dev/tensorflow/talkheads_ggelu_bert_en_base/1',
+}
+
+map_model_to_preprocess = {
+    'bert_en_uncased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'bert_en_cased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_cased_preprocess/3',
+    'small_bert/bert_en_uncased_L-2_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-2_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-2_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-2_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-4_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-4_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-4_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-4_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-6_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-6_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-6_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-6_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-8_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-8_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-8_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-8_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-10_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-10_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-10_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-10_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-12_H-128_A-2':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-12_H-256_A-4':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-12_H-512_A-8':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'small_bert/bert_en_uncased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'bert_multi_cased_L-12_H-768_A-12':
+        'https://tfhub.dev/tensorflow/bert_multi_cased_preprocess/3',
+    'albert_en_base':
+        'https://tfhub.dev/tensorflow/albert_en_preprocess/3',
+    'electra_small':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'electra_base':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'experts_pubmed':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'experts_wiki_books':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+    'talking-heads_base':
+        'https://tfhub.dev/tensorflow/bert_en_uncased_preprocess/3',
+}
+
+tfhub_handle_encoder = map_name_to_handle[bert_model_name]
+tfhub_handle_preprocess = map_model_to_preprocess[bert_model_name]
+
+print(f'BERT model selected           : {tfhub_handle_encoder}')
+print(f'Preprocess model auto-selected: {tfhub_handle_preprocess}')
+
+bert_preprocess_model = hub.KerasLayer(tfhub_handle_preprocess)
+
+weight_for_0 = (1 / hate)*(total)/3.0 
+weight_for_1 = (1 / ofensive)*(total)/3.0
+weight_for_2 = (1 / neither)*(total)/3.0
+
+
+class_weight = {0: weight_for_0, 1: weight_for_1, 2: weight_for_2}
+
+print('Weight for class 0: {:.2f}'.format(weight_for_0))
+print('Weight for class 1: {:.2f}'.format(weight_for_1))
+print('Weight for class 2: {:.2f}'.format(weight_for_2))
+
+
+def build_CNN_classifier_model():
+    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+    preprocessing_layer = hub.KerasLayer(tfhub_handle_preprocess, name='preprocessing')
+    encoder_inputs = preprocessing_layer(text_input)
+    encoder = hub.KerasLayer(tfhub_handle_encoder, trainable=True, name='BERT_encoder')
+    outputs = encoder(encoder_inputs)
+    #net = outputs['pooled_output'] # [batch_size, 768].
+    net = sequence_output = outputs["sequence_output"] # [batch_size, seq_length, 768]
+    net = tf.keras.layers.Conv1D(32, (2), activation='relu')(net)
+    net = tf.keras.layers.Conv1D(64, (2), activation='relu')(net)
+    #net = tf.keras.layers.MaxPooling1D(2)(net)
+    net = tf.keras.layers.GlobalMaxPool1D()(net)
+    net = tf.keras.layers.Dense(256, activation="relu")(net)
+    net = tf.keras.layers.Dropout(0.1)(net)
+    net = tf.keras.layers.Dense(3, activation="softmax", name='classifier')(net)
+    return tf.keras.Model(text_input, net)
+
+cnn_classifier_model = build_CNN_classifier_model()
+cnn_classifier_model.summary()
+
+loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+!pip install tf-models-official
+from official.nlp import optimization
+
+epochs = 20
+steps_per_epoch = tf.data.experimental.cardinality(train_ds).numpy()
+num_train_steps = steps_per_epoch * epochs
+num_warmup_steps = int(0.1*num_train_steps)
+
+init_lr = 3e-5
+optimizer = optimization.create_optimizer(init_lr=init_lr,
+                                          num_train_steps=num_train_steps,
+                                          num_warmup_steps=num_warmup_steps,
+                                          optimizer_type='adamw')
+
+cnn_classifier_model.compile(optimizer=optimizer,
+                          loss=tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True),
+                          metrics=tf.keras.metrics.SparseCategoricalAccuracy('accuracy'))
+
+
+print(f'Training model with {tfhub_handle_encoder}')
+cnn_history = cnn_classifier_model.fit(x=train_ds,
+                                       validation_data=val_ds,
+                                       epochs=epochs,
+                                       class_weight=class_weight
+                                      )
+
+history_dict = cnn_history.history
+print(history_dict.keys())
+
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+# acc = history_dict['binary_accuracy']
+# val_acc = history_dict['val_binary_accuracy']
+loss = history_dict['loss']
+val_loss = history_dict['val_loss']
+
+epochs = range(1, len(acc) + 1)
+fig = plt.figure(figsize=(12, 10))
+fig.tight_layout()
+
+plt.subplot(2, 1, 1)
+# "bo" is for "blue dot"
+plt.plot(epochs, loss, 'r', label='Training loss')
+# b is for "solid blue line"
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and validation loss')
+# plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.subplot(2, 1, 2)
+plt.plot(epochs, acc, 'r', label='Training acc')
+plt.plot(epochs, val_acc, 'b', label='Validation acc')
+plt.title('Training and validation accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+
+tweet = []
+test_labels = []
+predictions = []
+for tweet, labels in test_ds.take(-1):
+  tweet = tweet.numpy()
+  test_labels.append(labels.numpy())
+  predictions.append(cnn_classifier_model.predict(tweet))
+
+from itertools import chain
+flatten_list = list(chain.from_iterable(predictions))
+y_pred_2 = np.argmax(flatten_list, axis=-1)
+
+y_test_2 = np.array(list(chain.from_iterable(test_labels)))
+from sklearn.metrics import classification_report
+#val_true = validation_labels.detach().cpu().numpy().reshape((-1,1))
+#val_preds =  np.argmax(val_preds,axis = 1).reshape((-1,1))
+print(classification_report(y_test_2, y_pred_2))
+print(confusion_matrix(y_test_2, y_pred_2))
+
+def build_classifier_model(output_bias=None):
+    if output_bias is not None:
+        output_bias = tf.keras.initializers.Constant(output_bias)
+        #print(output_bias)
+
+    #input layer    
+    text_input = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+
+    #preprocessing layer 
+    preprocessing_layer = hub.KerasLayer(tfhub_handle_preprocess, name='preprocessing')
+
+    #giving input to bert model from the pre processed layer
+    encoder_inputs = preprocessing_layer(text_input)
+
+    #selecting the encoder
+    encoder = hub.KerasLayer(tfhub_handle_encoder, trainable=True, name='BERT_encoder')
+
+    #collecting the output of the bert encoder
+    outputs = encoder(encoder_inputs)
+
+    #collecting the pooled outputs
+    net = outputs['pooled_output']
+
+    #feeding the output to the multilayer perception
+
+    #1 DENSE LAYER
+    net = tf.keras.layers.Dense(512, activation="relu")(net)
+    #1 DROPUT LAYER
+    net = tf.keras.layers.Dropout(0.2)(net)
+    #1 OUTPUT LAYER WITH SOFTMAX
+    net = tf.keras.layers.Dense(3, activation="softmax", name='classifier', bias_initializer=output_bias)(net)
+    
+    return tf.keras.Model(text_input, net)
+
+classifier_model = build_classifier_model()
+bert_raw_result = classifier_model(tf.constant(text_test))
+print(tf.sigmoid(bert_raw_result))
+classifier_model.summary()
+
+loss = tf.keras.losses.SparseCategoricalCrossentropy(from_logits=True)
+metrics = tf.keras.metrics.SparseCategoricalAccuracy('accuracy')
+#metrics = tf.metrics.Accuracy()
+
+epochs = 20
+steps_per_epoch = tf.data.experimental.cardinality(train_ds).numpy()
+num_train_steps = steps_per_epoch * epochs
+num_warmup_steps = int(0.1*num_train_steps)
+
+init_lr = 3e-5
+optimizer = optimization.create_optimizer(init_lr=init_lr,
+                                          num_train_steps=num_train_steps,
+                                          num_warmup_steps=num_warmup_steps,
+                                          optimizer_type='adamw')
+
+
+
+classifier_model.compile(optimizer=optimizer,
+                         loss=loss,
+                         metrics=metrics)
+
+
+print(f'Training model with {tfhub_handle_encoder}')
+history = classifier_model.fit(x=train_ds,
+                               validation_data=val_ds,
+                               epochs=epochs,
+                               # The class weights go here
+                               class_weight=class_weight
+)
+
+history_dict = history.history
+print(history_dict.keys())
+
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+# acc = history_dict['binary_accuracy']
+# val_acc = history_dict['val_binary_accuracy']
+loss = history_dict['loss']
+val_loss = history_dict['val_loss']
+
+epochs = range(1, len(acc) + 1)
+fig = plt.figure(figsize=(12, 10))
+fig.tight_layout()
+
+plt.subplot(2, 1, 1)
+# "bo" is for "blue dot"
+plt.plot(epochs, loss, 'r', label='Training loss')
+# b is for "solid blue line"
+plt.plot(epochs, val_loss, 'b', label='Validation loss')
+plt.title('Training and validation loss')
+# plt.xlabel('Epochs')
+plt.ylabel('Loss')
+plt.legend()
+
+plt.subplot(2, 1, 2)
+plt.plot(epochs, acc, 'r', label='Training acc')
+plt.plot(epochs, val_acc, 'b', label='Validation acc')
+plt.title('Training and validation accuracy')
+plt.xlabel('Epochs')
+plt.ylabel('Accuracy')
+plt.legend(loc='lower right')
+
+tweet = []
+test_labels = []
+predictions = []
+
+for tweet, labels in test_ds.take(-1):
+  tweet = tweet.numpy()
+  test_labels.append(labels.numpy())
+  predictions.append(classifier_model.predict(tweet))
+
+
+from itertools import chain
+flatten_list = list(chain.from_iterable(predictions))
+
+
+y_pred = np.argmax(flatten_list, axis=-1)
+y_test = np.array(list(chain.from_iterable(test_labels)))
+
+from sklearn.metrics import confusion_matrix
+print(confusion_matrix(y_test, y_pred))
+
+from sklearn.metrics import classification_report
+#val_true = validation_labels.detach().cpu().numpy().reshape((-1,1))
+#val_preds =  np.argmax(val_preds,axis = 1).reshape((-1,1))
+print(classification_report(y_test, y_pred))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
