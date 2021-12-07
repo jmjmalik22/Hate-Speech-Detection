@@ -1,0 +1,17 @@
+#Defining Model Architecture
+def CNN_model():
+    #Trasnformer Encoding before feeding to CNN
+    text_in = tf.keras.layers.Input(shape=(), dtype=tf.string, name='text')
+    preprocess_layer = hub.KerasLayer(tfhub_handle_preprocess, name='preprocessing')
+    encoder_in = preprocess_layer(text_in)
+    encode = hub.KerasLayer(tfhub_handle_encoder, trainable=True, name='BERT_encoder')
+    outputs = encode(encoder_in)
+    network_layer= sequence_output = outputs["sequence_output"]
+    # 2 CNNLayers
+    network_layer = tf.keras.layers.Conv1D(32, (2), activation='relu')(network_layer) #CNN Layer 1
+    network_layer = tf.keras.layers.Conv1D(64, (2), activation='relu')(network_layer) #CNN Layer 2
+    network_layer = tf.keras.layers.GlobalMaxPool1D()(network_layer) #Global Maxpooling Layer
+    network_layer = tf.keras.layers.Dense(256, activation="relu")(network_layer) #DenseLayer 
+    network_layer = tf.keras.layers.Dropout(0.1)(network_layer) #Dropout Layer
+    network_layer = tf.keras.layers.Dense(3, activation="softmax", name='classifier')(network_layer) #ClassificationLayer
+    return tf.keras.Model(text_input, network_layer)
