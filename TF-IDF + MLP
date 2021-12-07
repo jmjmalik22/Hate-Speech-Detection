@@ -1,0 +1,160 @@
+#importing libraries
+
+from sklearn.feature_extraction.text import TfidfVectorizer
+import keras
+import pandas as pd
+import numpy as np
+from itertools import chain
+from keras.models import Sequential
+from keras.initializers import Constant
+from keras.layers import Embedding, BatchNormalization, Dense, Flatten, Dropout, Bidirectional,Flatten, GlobalMaxPool1D,Dropout
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from keras.layers.embeddings import Embedding
+from keras.callbacks import ReduceLROnPlateau
+from keras.optimizers import Adam
+from tensorflow.keras.models import Sequential
+from keras.callbacks import ReduceLROnPlateau,CSVLogger
+import matplotlib.pyplot as plt
+from tqdm.notebook import tqdm
+from keras.utils import np_utils
+import pickle
+import tensorflow as tf
+import matplotlib.pyplot as plt
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+
+#---------Data Read & Transformation---------
+
+#Data Reading for Davidson Dataset
+nRowsRead = None # specify 'None' to read complete file
+df0 = pd.read_csv('Dataset_File', delimiter=',', nrows = nRowsRead)
+nRow, nCol = df0.shape
+print('There are {} rows and {} columns'.format(nRow, nCol))
+
+#Doing Transformation
+c=df0['class']
+df0.rename(columns={'tweet' : 'text',
+                   'class' : 'category'}, 
+                    inplace=True)
+a=df0['text']
+b=df0['category'].map({0: 'hate_speech', 1: 'offensive_language',2: 'neither'})
+df= pd.concat([a,b,c], axis=1)
+df.rename(columns={'class' : 'label'}, 
+                    inplace=True)
+
+hate, ofensive, neither = np.bincount(df['label'])
+total = hate + ofensive + neither
+print('Examples:\n    Total: {}\n    hate: {} ({:.2f}% of total)\n'.format(
+    total, hate, 100 * hate / total))
+print('Examples:\n    Total: {}\n    Ofensive: {} ({:.2f}% of total)\n'.format(
+    total, ofensive, 100 * ofensive / total))
+print('Examples:\n    Total: {}\n    Neither: {} ({:.2f}% of total)\n'.format(
+    total, neither, 100 * neither / total))
+
+#Doing some adjustments
+
+c=df0['class']
+df0.rename(columns={'tweet' : 'text',
+                   'class' : 'category'}, 
+                    inplace=True)
+a=df0['text']
+b=df0['category'].map({0: 'hate_speech', 1: 'offensive_language',2: 'neither'})
+
+df= pd.concat([a,b,c], axis=1)
+df.rename(columns={'class' : 'label'}, 
+                    inplace=True)
+
+x= df['text']
+y=df['label']
+
+hate, ofensive, neither = np.bincount(df['label'])
+total = hate + ofensive + neither
+print('Examples:\n    Total: {}\n    hate: {} ({:.2f}% of total)\n'.format(
+    total, hate, 100 * hate / total))
+print('Examples:\n    Total: {}\n    Ofensive: {} ({:.2f}% of total)\n'.format(
+    total, ofensive, 100 * ofensive / total))
+print('Examples:\n    Total: {}\n    Neither: {} ({:.2f}% of total)\n'.format(
+    total, neither, 100 * neither / total))
+    
+
+#defining_class_weight for each class
+weight_class1 = (1 / hate)*(total)/3.0 
+weight_class2 = (1 / ofensive)*(total)/3.0
+weight_class3 = (1 / neither)*(total)/3.0
+class_weight = {0: weight_class1, 1: weight_class2, 2: weight_class3}
+
+tfidf = TfidfVectorizer(binary=True)
+
+#splitting the dataset
+x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
+
+#fitting and transforming datasets
+x = tfidf.fit_transform(x_train).todense()
+x_test = tfidf.transform(x_test).todense()    
+
+y_train = np_utils.to_categorical(y_train)
+
+y_test_= y_test
+y_test = np_utils.to_categorical(y_test)
+
+#splitting dataset
+x_train, x_val, y_train, y_val = train_test_split(x, y_train, test_size=0.2, random_state=0)
+
+#creating model
+def MLP():
+  model = Sequential()
+  model.add(Dense(512, activation='relu', input_shape=(29600,))) #dense_layer
+  model.add(Dropout(0.2))#dropout_layer
+  model.add(Dense(3, activation="softmax", name='classifier')) #classification_layer
+  model.compile(optimizer='adam',loss='categorical_crossentropy',metrics=['accuracy'])
+  return model
+
+#building model
+mlp_model=MLP()
+
+#running model
+mlp_history = mlp_model.fit(x_train, 
+                      y_train, 
+                      batch_size=128,
+                      epochs=20, 
+                      validation_data=(x_val, y_val))
+
+
+#creating graphs for accuracy and loss
+#fining_values
+history_dict = mlp_history.history
+print(history_dict.keys())
+acc = history_dict['accuracy']
+val_acc = history_dict['val_accuracy']
+loss = history_dict['loss']
+val_loss = history_dict['val_loss']
+epochs = range(1, len(acc) + 1)
+
+#defining_figures
+fig = plt.figure(figsize=(12, 10))
+fig.tight_layout()
+#1st_figure
+plt.subplot(2, 1, 1)
+plt.plot(epochs, loss, 'r', label='Training-loss')#training_loss
+plt.plot(epochs, val_loss, 'b', label='Validation-loss')#validation_loss
+plt.title('Training & validation Loss')
+plt.xlabel('Epochs-Count')
+plt.ylabel('Loss')
+plt.legend()
+#2nd_Figure
+plt.subplot(2, 1, 2)
+plt.plot(epochs, acc, 'r', label='Training-accuracy')#training_accuracy
+plt.plot(epochs, val_acc, 'b', label='Validation-accuracy')#validation_accuracy
+plt.title('Training & Validation Accuracy')
+plt.xlabel('Epochs-Count')
+plt.ylabel('Acc')
+plt.legend(loc='lower right')
+
+y_test = np.array(list(chain.from_iterable(y_test)))
+#predicting
+y_pred = build_model.predict_classes(x_test, verbose=0)
+
+#creating reports
+print(confusion_matrix(y_test_, y_pred))
+print(classification_report(y_test_, y_pred))
