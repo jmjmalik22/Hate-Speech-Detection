@@ -23,6 +23,9 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, f1_score, confusion_matrix
+import xgboost as xgb
+from sklearn import svm
+
 
 #---------Data Read & Transformation---------
 
@@ -88,6 +91,13 @@ tfidf = TfidfVectorizer(binary=True)
 
 #splitting the dataset
 x_train, x_test, y_train, y_test = train_test_split(x, y, random_state=42)
+
+#for SVM and XGB
+Tfidf_vect = TfidfVectorizer(max_features=5000)
+Tfidf_vect.fit(x)
+Train_X_Tfidf = Tfidf_vect.transform(x_train)
+Test_X_Tfidf = Tfidf_vect.transform(x_test)
+
 
 #fitting and transforming datasets
 x = tfidf.fit_transform(x_train).todense()
@@ -158,3 +168,26 @@ y_pred = build_model.predict_classes(x_test, verbose=0)
 #creating reports
 print(confusion_matrix(y_test_, y_pred))
 print(classification_report(y_test_, y_pred))
+
+
+#running SVM
+SVM = svm.SVC(C=1.0, kernel='linear', degree=3, gamma='auto',verbose=True,class_weight=class_weight)
+SVM.fit(Train_X_Tfidf,y_train)
+
+#predciting
+predictions_SVM = SVM.predict(Test_X_Tfidf)
+print(classification_report(y_test,predictions_SVM))
+
+
+#running XGB
+xgb_classifier = xgb.XGBClassifier()
+xgb= xgb_classifier.fit(Train_X_Tfidf,y_train)
+
+#predciting
+predictions_xgb = xgb.predict(Test_X_Tfidf)
+print(classification_report(y_test,predictions_xgb))
+
+
+
+
+
