@@ -1,0 +1,58 @@
+def bilstm():
+    model = Sequential()
+    #adding embediing layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    #adding Bi_lstm later
+    model.add(Bidirectional(LSTM(
+        length_long_sentence, 
+        return_sequences = True, 
+        recurrent_dropout=0.2)))
+    model.add(GlobalMaxPool1D()) #globalmaxpooling_layer
+    model.add(BatchNormalization()) #bath_normalisation
+    model.add(Dropout(0.5)) #dropout_1
+    model.add(Dense(length_long_sentence, activation = "relu")) #denselayer_1
+    model.add(Dropout(0.5)) #dropout_2
+    model.add(Dense(length_long_sentence, activation = "relu")) #denselayer_2
+    model.add(Dropout(0.5)) #dropout_3
+    model.add(Dense(3, activation = 'softmax')) #classification_layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+    
+ def CNN():
+    model = Sequential()
+    #adding embedding layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    # 2 CNN layer
+    model.add(Conv1D(32,2,padding='valid', activation='relu')) #cnn_layer_1
+    model.add(Conv1D(64,2,padding='valid',activation='relu')) #cnn_layer_2
+    model.add(GlobalMaxPooling1D()) #globalmaxpooling_layer
+    model.add(Dense(256, activation='relu')) #dense_layer
+    model.add(Dropout(0.1)) #dropout_layer
+    model.add(Dense(3, activation = 'softmax')) #classification layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+    
+def MLP():
+    model = Sequential()
+    #embedding layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    model.add(Flatten()) #flatten_layer
+    model.add(Dense(512, activation='relu')) #dense_layer
+    model.add(Dropout(0.2)) #dropout_layer
+    model.add(Dense(3, activation = 'softmax'))#classification_layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+  
+    
