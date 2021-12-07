@@ -1,0 +1,270 @@
+#------importing libraries
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import nltk
+from nltk.corpus import stopwords
+from nltk.tokenize import word_tokenize
+import keras
+from keras.models import Sequential
+from keras.initializers import Constant
+from keras.preprocessing.text import Tokenizer
+from keras.preprocessing.sequence import pad_sequences
+from tensorflow.keras.optimizers import Adam
+from keras.layers.convolutional import Conv2D
+from keras.layers.convolutional import MaxPooling2D
+from keras.layers import BatchNormalization
+from keras.callbacks import ReduceLROnPlateau,CSVLogger
+from tqdm.notebook import tqdm
+import tensorflow as tf
+from tensorflow.keras.models import Sequential,LSTM,BatchNormalization,Bidirectional
+from tensorflow.keras.layers import Dense, Dropout, Activation,Flatten,Embedding,Conv1D, GlobalMaxPooling1D, 
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix,classification_report
+import shutil
+
+
+#---------Data Read & Transformation---------
+
+#Data Reading for Davidson Dataset
+nRowsRead = None # specify 'None' to read complete file
+df0 = pd.read_csv('Dataset_File', delimiter=',', nrows = nRowsRead)
+nRow, nCol = df0.shape
+print('There are {} rows and {} columns'.format(nRow, nCol))
+
+#Doing Transformation
+c=df0['class']
+df0.rename(columns={'tweet' : 'text',
+                   'class' : 'category'}, 
+                    inplace=True)
+a=df0['text']
+b=df0['category'].map({0: 'hate_speech', 1: 'offensive_language',2: 'neither'})
+df= pd.concat([a,b,c], axis=1)
+df.rename(columns={'class' : 'label'}, 
+                    inplace=True)
+
+hate, ofensive, neither = np.bincount(df['label'])
+total = hate + ofensive + neither
+print('Examples:\n    Total: {}\n    hate: {} ({:.2f}% of total)\n'.format(
+    total, hate, 100 * hate / total))
+print('Examples:\n    Total: {}\n    Ofensive: {} ({:.2f}% of total)\n'.format(
+    total, ofensive, 100 * ofensive / total))
+print('Examples:\n    Total: {}\n    Neither: {} ({:.2f}% of total)\n'.format(
+    total, neither, 100 * neither / total))
+    
+x= df['text']
+y=df['label']
+
+texts = x
+target = y
+#tokensing the data
+
+word_tokenizer = Tokenizer()
+word_tokenizer.fit_on_texts(texts)
+#defining vocabulary length
+vocab_length = len(word_tokenizer.word_index) + 1
+
+def embed(text_data): 
+    return word_tokenizer.texts_to_sequences(text_data)
+
+longest_train = max(texts, key=lambda sentence: len(word_tokenize(sentence)))
+length_long_sentence = len(word_tokenize(longest_train))
+
+#padding_data
+train_padded_sentences = pad_sequences(
+    embed(texts), 
+    length_long_sentence, 
+    padding='post'
+)
+
+embeddings_dictionary = dict()
+embedding_dim = 100
+
+# Loading GloVe-100D embedding_file
+with open('/kaggle/input/glove6b100dtxt/glove.6B.100d.txt') as fp:
+    for line in fp.readlines():
+        records = line.split()
+        word = records[0]
+        vector_dimensions = np.asarray(records[1:], dtype='float32')
+        embeddings_dictionary[word] = vector_dimensions
+
+# Loading embedding_vectors of words which comes in Glove files other will be equated to 0
+#defining embedding matrix shape
+embedding_matrix = np.zeros((vocab_length, embedding_dim))
+#creating embedding matrix
+for word, index in word_tokenizer.word_index.items(): 
+    embedding_vector = embeddings_dictionary.get(word)
+    if embedding_vector is not None:
+        embedding_matrix[index] = embedding_vector
+        
+#splitting dataset
+X_train, X_test, y_train, y_test = train_test_split(
+    train_padded_sentences, 
+    target, 
+    test_size=0.25
+)
+
+X_train, x_val, y_train, y_val = train_test_split(
+    X_train, 
+    y_train,
+    test_size=0.1 )
+
+
+#defining glove bilstm model
+def bilstm():
+    model = Sequential()
+    #adding embediing layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    #adding Bi_lstm later
+    model.add(Bidirectional(LSTM(
+        length_long_sentence, 
+        return_sequences = True, 
+        recurrent_dropout=0.2)))
+    model.add(GlobalMaxPool1D()) #globalmaxpooling_layer
+    model.add(BatchNormalization()) #bath_normalisation
+    model.add(Dropout(0.5)) #dropout_1
+    model.add(Dense(length_long_sentence, activation = "relu")) #denselayer_1
+    model.add(Dropout(0.5)) #dropout_2
+    model.add(Dense(length_long_sentence, activation = "relu")) #denselayer_2
+    model.add(Dropout(0.5)) #dropout_3
+    model.add(Dense(3, activation = 'softmax')) #classification_layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+
+bilstm_model = bilstm()
+
+#defining_class_weight for each class
+weight_class1 = (1 / hate)*(total)/3.0 
+weight_class2 = (1 / ofensive)*(total)/3.0
+weight_class3 = (1 / neither)*(total)/3.0
+class_weight = {0: weight_class1, 1: weight_class2, 2: weight_class3}
+
+
+reduce_lr = ReduceLROnPlateau(
+    monitor = 'val_loss', 
+    factor = 0.2, 
+    verbose = 1, 
+    patience = 5,                        
+    min_lr = 0.001
+)
+
+epoch_count=20
+batch_size= 128
+
+#running_model
+history = bilstm_model.fit(
+    X_train, 
+    y_train, 
+    epochs = epoch_count,
+    batch_size = batch_size,
+    validation_data = (x_val, y_val),
+    verbose = 1,
+    callbacks = [reduce_lr],
+    class_weight=class_weight
+)
+
+#plotting graphs
+def plot_learning_curves(history, arr):
+    fig, ax = plt.subplots(1, 2, figsize=(20, 5))
+    for idx in range(2):
+        ax[idx].plot(history.history[arr[idx][0]])
+        ax[idx].plot(history.history[arr[idx][1]])
+        ax[idx].legend([arr[idx][0], arr[idx][1]],fontsize=17)
+        ax[idx].set_xlabel('Loss ',fontsize=14)
+        ax[idx].set_ylabel('Accuracy',fontsize=14)
+        ax[idx].set_title(arr[idx][0] + ' X ' + arr[idx][1],fontsize=16)
+
+plot_learning_curves(history, [['loss', 'val_loss'],['accuracy', 'val_accuracy']])
+
+#prediciting
+preds= np.argmax(model.predict(X_test), axis=-1)
+#printing classification_report & confusion_matrix
+print(classification_report(y_test,preds ))
+print(confusion_matrix(y_test, preds))
+
+
+filters= 32
+kernel_size=2
+hidden_dims= 128
+    
+def CNN():
+    model = Sequential()
+    #adding embedding layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    # 2 CNN layer
+    model.add(Conv1D(32,2,padding='valid', activation='relu')) #cnn_layer_1
+    model.add(Conv1D(64,2,padding='valid',activation='relu')) #cnn_layer_2
+    model.add(GlobalMaxPooling1D()) #globalmaxpooling_layer
+    model.add(Dense(256, activation='relu')) #dense_layer
+    model.add(Dropout(0.1)) #dropout_layer
+    model.add(Dense(3, activation = 'softmax')) #classification layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+
+#builiding CNN model
+model2=CNN()
+ 
+#running mode
+history2 = model2.fit(
+    X_train, 
+    y_train, 
+    epochs = epoch_count,
+    batch_size = batch_size,
+    validation_data = (x_val, y_val),
+    verbose = 1,
+    callbacks = [reduce_lr, checkpoint],
+    class_weight=class_weight
+)
+
+#plotting graphs
+plot_learning_curves(history2, [['loss', 'val_loss'],['accuracy', 'val_accuracy']])
+#predicting
+pred2= np.argmax(model2.predict(X_test), axis=-1)
+#printing reports
+print(classification_report(y_test,pred2 ))
+print(confusion_matrix(y_test, pred2))
+
+def MLP():
+    model = Sequential()
+    #embedding layer
+    model.add(Embedding(
+        input_dim=embedding_matrix.shape[0], 
+        output_dim=embedding_matrix.shape[1], 
+        weights = [embedding_matrix], 
+        input_length=length_long_sentence))
+    model.add(Flatten()) #flatten_layer
+    model.add(Dense(512, activation='relu')) #dense_layer
+    model.add(Dropout(0.2)) #dropout_layer
+    model.add(Dense(3, activation = 'softmax'))#classification_layer
+    model.compile(loss = 'sparse_categorical_crossentropy', optimizer = 'adam', metrics = ['accuracy'])
+    return model
+
+#building model
+model3=MLP()
+#running_model
+history3 = model3.fit(
+    X_train, 
+    y_train, 
+    epochs = epoch_count,
+    batch_size = batch_size,
+    validation_data = (x_val, y_val),
+    verbose = 1,
+    callbacks = [reduce_lr, checkpoint],
+    class_weight=class_weight
+)
+
+#plotting_graphs
+plot_learning_curves(history3, [['loss', 'val_loss'],['accuracy', 'val_accuracy']])
+#predicting
+pred3= np.argmax(model3.predict(X_test), axis=-1)
+
+print(classification_report(y_test,pred3))
+print(confusion_matrix(y_test, pred3))
