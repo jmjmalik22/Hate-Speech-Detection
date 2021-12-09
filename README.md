@@ -19,7 +19,7 @@ Dataset 1 : @inproceedings{hateoffensive,
   }
   
   
-  Dataset 2 : @inproceedings{founta2018large,
+Dataset 2 : @inproceedings{founta2018large,
     title={Large Scale Crowdsourcing and Characterization of Twitter Abusive Behavior},
     author={Founta, Antigoni-Maria and Djouvas, Constantinos and Chatzakou, Despoina and Leontiadis, Ilias and Blackburn, Jeremy and Stringhini, Gianluca and Vakali, Athena and Sirivianos, Michael and Kourtellis, Nicolas},
     booktitle={11th International Conference on Web and Social Media, ICWSM 2018},
@@ -27,7 +27,8 @@ Dataset 1 : @inproceedings{hateoffensive,
     organization={AAAI Press}
 }
 
+```
 Dataset 3: https://datahack.analyticsvidhya.com/contest/practice-problem-twitter-sentiment-analysis/
 
-```
+
 This code is written in Python and requires the packages listed in requirements.txt
