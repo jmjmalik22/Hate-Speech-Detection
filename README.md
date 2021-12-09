@@ -4,9 +4,8 @@ This research takes advantage of different embedding including Term Frequency - 
 
 ## Dataset
 
-Foloowing dataset were used by us to perform the experiments. These dataset were also modified by us to use the same models to perform the cross dimaib experiments.
+Folowing dataset were used by us to perform the experiments. These dataset were also modified by us to use the same models to perform the cross dimaib experiments.
 
-## Citation
 ```bibtex
 Dataset 1 : @inproceedings{hateoffensive,
   title = {Automated Hate Speech Detection and the Problem of Offensive Language},
@@ -17,8 +16,9 @@ Dataset 1 : @inproceedings{hateoffensive,
   location = {Montreal, Canada},
   pages = {512-515}
   }
-  
-  
+```  
+
+```bibtex  
 Dataset 2 : @inproceedings{founta2018large,
     title={Large Scale Crowdsourcing and Characterization of Twitter Abusive Behavior},
     author={Founta, Antigoni-Maria and Djouvas, Constantinos and Chatzakou, Despoina and Leontiadis, Ilias and Blackburn, Jeremy and Stringhini, Gianluca and Vakali, Athena and Sirivianos, Michael and Kourtellis, Nicolas},
@@ -30,5 +30,5 @@ Dataset 2 : @inproceedings{founta2018large,
 ```
 Dataset 3: https://datahack.analyticsvidhya.com/contest/practice-problem-twitter-sentiment-analysis/
 
-
+##Setup
 This code is written in Python and requires the packages listed in requirements.txt
