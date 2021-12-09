@@ -21,3 +21,5 @@ Dataset 1 : @inproceedings{hateoffensive,
 }
 
 Dataset 3: https://datahack.analyticsvidhya.com/contest/practice-problem-twitter-sentiment-analysis/
+
+This code is written in Python and requires the packages listed in requirements.txt
