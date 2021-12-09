@@ -34,3 +34,12 @@ Dataset 3: https://datahack.analyticsvidhya.com/contest/practice-problem-twitter
 
 ## Setup 
 This code is written in Python and requires the packages listed in requirements.txt Install with pip install in a virtualenv.
+
+## Usage
+Each of the file :
+- `Glove - BiLSTM+CNN+MLP`
+- `TF-IDF + MLP + SVM + XGB`
+- `Transfomer- CNN & MLP`
+
+can be run directly by providing a datafile inside the files
+
