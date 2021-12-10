@@ -43,7 +43,7 @@ Each of the file :
 
 can be run directly by providing a dataset file path inside these files.
 
-## Specific transfomers Models
+### Specific transfomers Models
 
 The given `Transfomer- CNN & MLP` file contains the implementation of the `bert_en_uncased_L-2_H-128_A-2` model. In order to execute a different model the files needs to be prvided with the specific transfomer model name which are available upon the official transfomer website :
 
