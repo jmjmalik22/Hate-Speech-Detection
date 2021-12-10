@@ -38,8 +38,8 @@ This code is written in Python and requires the packages listed in requirements.
 ## Usage
 Each of the file :
 - `Glove - BiLSTM+CNN+MLP` - models for glove embeddings
-- `TF-IDF + MLP + SVM + XGB` all models with TF-IDF embeddings
-- `Transfomer- CNN & MLP` - Transfomer models
+- `TF-IDF + MLP + SVM + XGB` - all models with TF-IDF embeddings
+- `Transfomer- CNN & MLP` - transfomer models
 
 can be run directly by providing a dataset file path inside these files.
 
