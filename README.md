@@ -37,9 +37,17 @@ This code is written in Python and requires the packages listed in requirements.
 
 ## Usage
 Each of the file :
-- `Glove - BiLSTM+CNN+MLP`
-- `TF-IDF + MLP + SVM + XGB`
-- `Transfomer- CNN & MLP`
+- `Glove - BiLSTM+CNN+MLP` - models for glove embeddings
+- `TF-IDF + MLP + SVM + XGB` all models with TF-IDF embeddings
+- `Transfomer- CNN & MLP` - Transfomer models
 
-can be run directly by providing a datafile inside the files
+can be run directly by providing a dataset file path inside these files.
+
+## Specific transfomers Models
+
+The given `Transfomer- CNN & MLP` file contains the implementation of the `bert_en_uncased_L-2_H-128_A-2` model. In order to execute a different model the files needs to be prvided with the specific transfomer model name which are available upon the official transfomer website :
+
+https://tfhub.dev/google/collections/transformer_encoders_text/1
+
+Each of these models can be simply run by providing the code for the model available at above website. For more ease the following files give a dropdown option to select the models to run, when executes on google colaboratory without the need to past the code for each specific model.
 
