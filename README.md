@@ -33,7 +33,7 @@ Dataset 2 : @inproceedings{founta2018large,
 Dataset 3: https://datahack.analyticsvidhya.com/contest/practice-problem-twitter-sentiment-analysis/
 
 ## Setup 
-This code is written in Python and requires the packages listed in requirements.txt Install with pip install in a virtualenv.
+This code is written in Python and requires the packages listed in `requirement.txt`. Install with pip install in a virtualenv.
 
 ## Usage
 Each of the file :
